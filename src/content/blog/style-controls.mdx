@@ -1,0 +1,246 @@
+---
+_schema: default
+title: Style Controls
+post_hero:
+  heading: Exposing style controls to editors
+  date: 2026-08-28T09:00:00+12:00
+  tags:
+    - styling
+    - inputs
+    - images
+    - building
+  author: T Richardson
+  image: /src/assets/images/blog/featured-image-3.jpg
+  image_alt: A person sketching interface layouts on paper.
+thumb_image_path: /src/assets/images/blog/blog-thumb-4.jpg
+thumb_image_alt: A desk with design tools and a laptop.
+seo:
+  page_description: How to expose font, color, spacing, image and layout controls on an Astro component in CloudCannon, with live re-rendering.
+  canonical_url:
+  featured_image: /images/blog/featured-image-3.jpg
+  featured_image_alt: A person sketching interface layouts on paper.
+  author_twitter_handle:
+  open_graph_type: article
+  no_index: false
+---
+The two sections on the [home page](/) with the teal and purple buttons are the
+same component rendered twice. Everything that differs between them — typeface,
+text size, padding, colors, image placement — is front matter, edited from the
+sidebar. This post walks through how `StyledSection` is built.
+
+## Can font, size, spacing and color be exposed like other visual editors?
+
+Yes. CloudCannon has a dedicated Input type for each kind of control, so you
+pick the one that matches the shape of the value:
+
+| Control | Input type | Why |
+| --- | --- | --- |
+| Font family, sizes, alignment, widths | `select` | A closed set of tokens. Editors pick a friendly name; the component stores an id. |
+| Background, text and accent color | `color` | Real color picker, with a `palette` of brand colors. |
+| Vertical padding, content gap | `range` | A slider for continuous values, in pixels. |
+
+A `select` keeps editors inside the set of values your component actually
+handles. Configure it with `value_key: id` so the stored value is the token and
+the label stays human-readable:
+
+```yaml
+style.font_family:
+  type: select
+  label: Font Family
+  options:
+    value_key: id
+    preview:
+      text:
+        - key: name
+    values:
+      - name: Sans (system)
+        id: sans
+      - name: Serif (Georgia)
+        id: serif
+```
+
+For colors, a `palette` turns the picker into a design system rather than a
+free-for-all. Add `hide_picker: true` to remove the freeform picker entirely and
+restrict editors to brand colors:
+
+```yaml
+style.background_color:
+  type: color
+  label: Background Color
+  options:
+    format: hex
+    palette: ['#ffffff', '#f9fafb', '#eff6ff', '#111827', '#1e3a8a']
+```
+
+And spacing gets an actual slider:
+
+```yaml
+style.padding_y:
+  type: range
+  label: Vertical Padding
+  options:
+    min: 0
+    max: 160
+    step: 8
+```
+
+### Keep the style fields in one object
+
+All of these live under a single `style` object in front matter, and their
+Inputs are declared with dot-scoped keys (`style.font_family`). This matters:
+CloudCannon matches `_inputs` keys **by name at any nesting depth**, so a bare
+`layout` key would collide with the global `layout` Input this site already
+hides. Dot-scoping makes the match explicit.
+
+## The Tailwind trap
+
+Tailwind v4 scans your source statically. A composed class name never appears in
+the source, so it gets purged and the style silently does nothing:
+
+```jsx
+/* Broken — this class is never generated */
+<div class={`bg-${color}-600`}>
+```
+
+There are two ways around it, and `StyledSection` uses both, because they suit
+different kinds of value.
+
+**Finite token sets use a lookup map of complete class strings.** Every class is
+written out in full, so the scanner finds it:
+
+```js
+const HEADING_SIZE = {
+  sm: "text-xl md:text-2xl",
+  md: "text-2xl md:text-3xl",
+  lg: "text-3xl md:text-4xl",
+  xl: "text-4xl md:text-6xl",
+};
+```
+
+**Arbitrary values use CSS custom properties.** A hex code from a color picker
+or a pixel value from a slider can never be a Tailwind class, so pass it as an
+inline custom property and reference it with a literal arbitrary-value utility:
+
+```jsx
+const sectionStyle = [
+  `background-color:${s.background_color}`,
+  `padding-block:${s.padding_y}px`,
+  `--sx-accent:${s.accent_color}`,
+].join(";");
+
+<section style={sectionStyle}>
+  <a class="bg-[var(--sx-accent)]">Button</a>
+```
+
+`bg-[var(--sx-accent)]` is a literal string in the source, so Tailwind emits it;
+the *value* varies at runtime through the custom property.
+
+One more detail worth copying: CloudCannon writes unset structure keys as
+`null`, so merging editor values over your defaults needs to skip empties rather
+than spreading blindly.
+
+```js
+const s = { ...DEFAULTS };
+for (const [key, value] of Object.entries(style ?? {})) {
+  if (value !== null && value !== undefined && value !== "") s[key] = value;
+}
+```
+
+## Recommended image configuration
+
+Images that should be optimized belong in `src/assets`, where Astro's
+`<Picture>` can process them. The Input that points at them needs two things:
+
+```yaml
+image_path:
+  type: image
+  options:
+    paths:
+      static: ''
+      uploads: src/assets/images
+```
+
+The `static: ''` is the part people miss. Without it CloudCannon strips the path
+prefix, and `import.meta.glob` can no longer resolve the value back to an image.
+
+Beyond the path, it is worth adding upload guardrails. Files in `src/assets` are
+committed to the repository, and `<Picture widths={[600, 800, 1200]}>` never
+emits anything above 1200px — so an untouched 6000px camera original is pure
+repository bloat:
+
+```yaml
+    accepts_mime_types: [image/jpeg, image/png, image/webp, image/svg+xml]
+    max_file_size: 2000   # kB, not bytes
+    width: 2400
+    height: 2400
+    resize_style: contain
+    prevent_resize_existing_files: true
+```
+
+Capping at 2400px leaves 2x headroom over the largest emitted width.
+`prevent_resize_existing_files` stops re-selecting an existing library asset from
+rewriting it.
+
+**Don't use CloudCannon's `options.sizes` here.** That generates and commits
+extra derivative files, which is exactly the job Astro's build already does.
+Let CloudCannon manage the single source image, and let Astro produce the
+responsive set.
+
+On the template side, the image is replaceable in place because the `<Picture>`
+carries editable-region attributes:
+
+```jsx
+<Picture
+  data-editable="image"
+  data-prop-src="image.image_path"
+  data-prop-alt="image.alt_text"
+  src={imageSrc}
+  alt={image.alt_text}
+  widths={[600, 800, 1200]}
+  formats={["avif", "webp"]}
+/>
+```
+
+## What live re-rendering needs
+
+Almost nothing beyond registering the component — but the one rule that matters
+is this: **an inline `data-editable="text"` region only updates DOM text.** It
+cannot re-run an expression. Changing a font or a color changes a computed class
+or an inline style, which means the section has to be re-rendered rather than
+patched.
+
+That happens through component registration. For a page-builder block, two
+edits:
+
+```js
+// src/layouts/Page.astro
+const componentMap = {
+  StyledSection: "styled-section/styled-section",
+};
+
+// src/scripts/register-components.ts
+registerAstroComponent("StyledSection", StyledSection);
+```
+
+The name string must match the block's `_name` exactly. The page template
+already wraps each block in an element carrying `data-component`, which is what
+tells CloudCannon which registered renderer to call:
+
+```jsx
+<section data-editable="array-item" data-component={block._name}>
+```
+
+For a standalone (non-array) section, wrap it at the call site instead, or
+sidebar-only changes won't propagate:
+
+```jsx
+<editable-component data-component="hero" data-prop="hero_block">
+  <Hero {...hero_block} />
+</editable-component>
+```
+
+If a style field still doesn't update live, check that it exists in the
+structure's `value` template in `cloudcannon.config.yml`. Fields missing from
+the structure shape are stripped from props when the component re-renders —
+and adding a hidden Input does not fix it, because Inputs control the sidebar
+UI, not which fields are forwarded.

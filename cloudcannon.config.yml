@@ -244,6 +244,40 @@ _structures:
           _name: TextBlock
           heading:
           text_content:
+      - label: Styled Section
+        icon: format_paint
+        preview:
+          text:
+            - key: heading
+            - Styled Section
+          subtext:
+            - key: text_content
+          image:
+            - key: image.image_path
+          icon: format_paint
+        value:
+          _name: StyledSection
+          heading:
+          text_content:
+          image:
+            image_path:
+            alt_text:
+          button:
+            text:
+            link:
+          style:
+            font_family: sans
+            heading_size: lg
+            body_size: md
+            text_align: left
+            background_color: '#ffffff'
+            text_color: '#1f2937'
+            accent_color: '#2563eb'
+            padding_y: 64
+            gap: 32
+            max_width: wide
+            image_position: right
+            image_ratio: landscape
   hero_blocks:
     values:
       - label: Hero
@@ -325,9 +359,23 @@ _inputs:
     type: image
     comment: The path to the source file of the image.
     options:
+      # `static: ''` is what keeps the full `/src/assets/...` prefix in the
+      # saved value, so `import.meta.glob` can resolve it for astro:assets.
       paths:
         static: ''
         uploads: src/assets/images
+      accepts_mime_types:
+        - image/jpeg
+        - image/png
+        - image/webp
+        - image/svg+xml
+      # Sources are committed to git and <Picture> never emits above 1200px,
+      # so cap uploads at 2x that. Note max_file_size is in kB, not bytes.
+      max_file_size: 2000
+      width: 2400
+      height: 2400
+      resize_style: contain
+      prevent_resize_existing_files: true
   alt_text:
     label: Image Alt Text
     type: textarea
@@ -393,5 +441,180 @@ _inputs:
     type: checkbox
     comment:
       When selected this removes the page from your sitemap and adds the noindex robots meta tag.
+  # --- Styled Section controls -------------------------------------------
+  # Keys are dot-scoped under `style.` so they cannot collide with global
+  # input keys of the same name (e.g. the top-level `layout`, hidden below).
+  style:
+    type: object
+    label: Section Styles
+    comment: Typography, color, spacing and layout for this section.
+    options:
+      preview:
+        icon: palette
+        text:
+          - Section styles
+  style.font_family:
+    type: select
+    label: Font Family
+    comment: Applies to all text in this section.
+    options:
+      value_key: id
+      preview:
+        text:
+          - key: name
+      values:
+        - name: Sans (system)
+          id: sans
+        - name: Serif (Georgia)
+          id: serif
+        - name: Monospace
+          id: mono
+  style.heading_size:
+    type: select
+    label: Heading Size
+    options:
+      value_key: id
+      preview:
+        text:
+          - key: name
+      values:
+        - name: Small
+          id: sm
+        - name: Medium
+          id: md
+        - name: Large
+          id: lg
+        - name: Extra large
+          id: xl
+  style.body_size:
+    type: select
+    label: Body Size
+    options:
+      value_key: id
+      preview:
+        text:
+          - key: name
+      values:
+        - name: Small
+          id: sm
+        - name: Medium
+          id: md
+        - name: Large
+          id: lg
+  style.text_align:
+    type: select
+    label: Text Alignment
+    options:
+      value_key: id
+      preview:
+        text:
+          - key: name
+      values:
+        - name: Left
+          id: left
+        - name: Center
+          id: center
+  style.background_color:
+    type: color
+    label: Background Color
+    comment: 'Add `hide_picker: true` to lock editors to the brand palette.'
+    options:
+      format: hex
+      palette:
+        - '#ffffff'
+        - '#f9fafb'
+        - '#eff6ff'
+        - '#111827'
+        - '#1e3a8a'
+  style.text_color:
+    type: color
+    label: Text Color
+    options:
+      format: hex
+      palette:
+        - '#1f2937'
+        - '#4b5563'
+        - '#ffffff'
+        - '#eff6ff'
+  style.accent_color:
+    type: color
+    label: Accent Color
+    comment: Used for the button background.
+    options:
+      format: hex
+      palette:
+        - '#2563eb'
+        - '#0f766e'
+        - '#b91c1c'
+        - '#7c3aed'
+        - '#111827'
+  style.padding_y:
+    type: range
+    label: Vertical Padding
+    # `min` must be non-zero: CloudCannon's range input reads a 0 minimum as
+    # unset and reports "options.min must be a valid number".
+    comment: Space above and below the section, in pixels.
+    options:
+      min: 8
+      max: 160
+      step: 8
+  style.gap:
+    type: range
+    label: Content Gap
+    comment: Space between the text, button and image, in pixels.
+    options:
+      min: 4
+      max: 64
+      step: 4
+  style.max_width:
+    type: select
+    label: Content Width
+    options:
+      value_key: id
+      preview:
+        text:
+          - key: name
+      values:
+        - name: Narrow
+          id: narrow
+        - name: Normal
+          id: normal
+        - name: Wide
+          id: wide
+        - name: Full width
+          id: full
+  style.image_position:
+    type: select
+    label: Image Position
+    options:
+      value_key: id
+      preview:
+        text:
+          - key: name
+      values:
+        - name: Right of text
+          id: right
+        - name: Left of text
+          id: left
+        - name: Above text
+          id: top
+        - name: No image
+          id: none
+  style.image_ratio:
+    type: select
+    label: Image Shape
+    options:
+      value_key: id
+      preview:
+        text:
+          - key: name
+      values:
+        - name: Landscape (16:9)
+          id: landscape
+        - name: Square
+          id: square
+        - name: Portrait (3:4)
+          id: portrait
+  # --- end Styled Section controls ---------------------------------------
   _name:
     hidden: true

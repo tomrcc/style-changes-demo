@@ -1,0 +1,201 @@
+---
+import type { ImageMetadata } from "astro";
+import { Picture } from "astro:assets";
+import Markdown from "../utility/markdown.astro";
+
+interface SectionStyle {
+  font_family?: string;
+  heading_size?: string;
+  body_size?: string;
+  text_align?: string;
+  background_color?: string;
+  text_color?: string;
+  accent_color?: string;
+  padding_y?: number;
+  gap?: number;
+  max_width?: string;
+  image_position?: string;
+  image_ratio?: string;
+}
+
+interface Props {
+  heading?: string;
+  text_content?: string;
+  image?: {
+    image_path?: string;
+    alt_text?: string;
+  };
+  button?: {
+    text?: string;
+    link?: string;
+  };
+  style?: SectionStyle;
+}
+
+const { heading, text_content, image, button, style } = Astro.props;
+
+// Font stacks live here rather than in Tailwind, so the control needs no
+// webfont request. Swap these for `astro:fonts` families to use brand fonts.
+const FONT_STACKS: Record<string, string> = {
+  sans: 'system-ui, -apple-system, "Segoe UI", sans-serif',
+  serif: 'Georgia, "Times New Roman", serif',
+  mono: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+};
+
+// Tailwind v4 scans source statically, so these must be COMPLETE class
+// strings. A composed `text-${size}` would be purged from the build.
+const HEADING_SIZE: Record<string, string> = {
+  sm: "text-xl md:text-2xl",
+  md: "text-2xl md:text-3xl",
+  lg: "text-3xl md:text-4xl",
+  xl: "text-4xl md:text-6xl",
+};
+const BODY_SIZE: Record<string, string> = {
+  sm: "text-sm",
+  md: "text-base",
+  lg: "text-lg",
+};
+const TEXT_ALIGN: Record<string, string> = {
+  left: "text-left",
+  center: "text-center",
+};
+// The button is a flex child, so text-align alone won't move it. Align it
+// explicitly so it tracks the text rather than sticking to the left.
+const SELF_ALIGN: Record<string, string> = {
+  left: "self-start",
+  center: "self-center",
+};
+const MAX_WIDTH: Record<string, string> = {
+  narrow: "max-w-2xl",
+  normal: "max-w-4xl",
+  wide: "max-w-6xl",
+  full: "max-w-none",
+};
+const IMAGE_RATIO: Record<string, string> = {
+  landscape: "aspect-video",
+  square: "aspect-square",
+  portrait: "aspect-[3/4]",
+};
+// Every entry names a flex direction, so there is no competing base class.
+const IMAGE_POSITION: Record<string, string> = {
+  right: "flex-col md:flex-row",
+  left: "flex-col md:flex-row-reverse",
+  top: "flex-col-reverse",
+  none: "flex-col",
+};
+
+const DEFAULTS = {
+  font_family: "sans",
+  heading_size: "lg",
+  body_size: "md",
+  text_align: "left",
+  background_color: "#ffffff",
+  text_color: "#1f2937",
+  accent_color: "#2563eb",
+  padding_y: 64,
+  gap: 32,
+  max_width: "wide",
+  image_position: "right",
+  image_ratio: "landscape",
+};
+
+// CloudCannon writes unset structure keys as null, so a plain spread would
+// clobber every default. Only take values the editor actually set.
+const s: Record<string, any> = { ...DEFAULTS };
+for (const [key, value] of Object.entries(style ?? {})) {
+  if (value !== null && value !== undefined && value !== "") {
+    s[key] = value;
+  }
+}
+
+// Arbitrary values (picked colours, slider pixels) travel as inline custom
+// properties, which no static scanner needs to know about ahead of time.
+const sectionStyle = [
+  `background-color:${s.background_color}`,
+  `color:${s.text_color}`,
+  `font-family:${FONT_STACKS[s.font_family] ?? FONT_STACKS.sans}`,
+  `padding-block:${s.padding_y}px`,
+  `--sx-accent:${s.accent_color}`,
+  `--sx-gap:${s.gap}px`,
+].join(";");
+
+const images = import.meta.glob<{ default: ImageMetadata }>(
+  "/src/assets/**/*.{jpeg,jpg,png,gif,svg,webp,avif}",
+  { eager: true },
+);
+const imageSrc = images[image?.image_path ?? ""]?.default ?? image?.image_path;
+const showImage =
+  s.image_position !== "none" && image?.image_path && image?.alt_text;
+---
+
+<section class="px-8" style={sectionStyle}>
+  <div
+    class:list={[
+      "mx-auto flex items-center gap-[var(--sx-gap)]",
+      MAX_WIDTH[s.max_width],
+      IMAGE_POSITION[s.image_position],
+    ]}>
+    <div
+      class:list={[
+        "flex-1 flex flex-col gap-[var(--sx-gap)]",
+        TEXT_ALIGN[s.text_align],
+      ]}>
+      {
+        heading && (
+          <h2
+            data-editable="text"
+            data-prop="heading"
+            class:list={[
+              "font-bold leading-tight text-balance",
+              HEADING_SIZE[s.heading_size],
+            ]}>
+            {heading}
+          </h2>
+        )
+      }
+      <div class:list={[BODY_SIZE[s.body_size]]}>
+        <Markdown
+          content={text_content}
+          dataProp="text_content"
+          dataType="block"
+        />
+      </div>
+      {
+        button?.link && (
+          <a
+            href={button.link}
+            class:list={[
+              "inline-block w-fit rounded-lg bg-[var(--sx-accent)] px-6 py-3",
+              "font-medium text-white transition-opacity hover:opacity-90",
+              SELF_ALIGN[s.text_align],
+            ]}>
+            <span data-editable="text" data-prop="button.text">
+              {button.text}
+            </span>
+          </a>
+        )
+      }
+    </div>
+    {
+      showImage && (
+        <div class="flex-1">
+          <Picture
+            data-editable="image"
+            data-prop-src="image.image_path"
+            data-prop-alt="image.alt_text"
+            src={imageSrc}
+            alt={image.alt_text}
+            class:list={[
+              "w-full rounded-lg object-cover",
+              IMAGE_RATIO[s.image_ratio],
+            ]}
+            loading="lazy"
+            widths={[600, 800, 1200]}
+            sizes="(max-width: 768px) 100vw, 600px"
+            formats={["avif", "webp"]}
+          />
+        </div>
+      )
+    }
+  </div>
+</section>

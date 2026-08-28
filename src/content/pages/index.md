@@ -76,4 +76,58 @@ content_blocks:
     button:
       text: CloudCannon Docs
       link: https://cloudcannon.com/documentation/
+  - _name: StyledSection
+    heading: Every style is just another field.
+    text_content: >-
+      Font family, text size, spacing, colors, image placement — all of it comes
+      from front matter, so editors change it from the sidebar without touching
+      CSS.
+
+
+      This section and the dark one below it are **the same component**. Only
+      the data differs.
+    image:
+      image_path: /src/assets/images/transparent-bg/undraw-data-input.svg
+      alt_text: An illustration of someone entering data into a large form.
+    button:
+      text: Read the write-up
+      link: /blog/style-controls/
+    style:
+      font_family: serif
+      heading_size: xl
+      body_size: lg
+      text_align: left
+      background_color: '#f9fafb'
+      text_color: '#1f2937'
+      accent_color: '#0f766e'
+      padding_y: 96
+      gap: 40
+      max_width: wide
+      image_position: right
+      image_ratio: landscape
+  - _name: StyledSection
+    heading: Same component, different data.
+    text_content: >-
+      Sans-serif, centered, narrow, dark, image above the text. Change any of
+      these in the Visual Editor and the section re-renders live — no save, no
+      reload.
+    image:
+      image_path: /src/assets/images/blog/blog-thumb-3.jpg
+      alt_text: A group of people collaborating around a laptop.
+    button:
+      text: CloudCannon Docs
+      link: https://cloudcannon.com/documentation/
+    style:
+      font_family: sans
+      heading_size: lg
+      body_size: md
+      text_align: center
+      background_color: '#111827'
+      text_color: '#eff6ff'
+      accent_color: '#7c3aed'
+      padding_y: 128
+      gap: 32
+      max_width: narrow
+      image_position: top
+      image_ratio: landscape
 ---
